@@ -81,7 +81,26 @@ description: |
 }
 ```
 
-### 步骤 2：构建索引
+### 步骤 2：搜索参数说明
+
+配置中已包含以下优化参数（均已在上方 JSON 中预设，无需额外修改）：
+
+| 参数组 | 参数 | 值 | 说明 |
+|--------|------|-----|------|
+| **分块** | `chunking.tokens` | 200 | 每个文本块 200 token |
+| | `chunking.overlap` | 30 | 块间重叠 30 token，避免截断语义 |
+| **基础查询** | `query.maxResults` | 10 | 最多返回 10 条结果 |
+| | `query.minScore` | 0.35 | 最低相关度阈值，低于此分数不返回 |
+| **混合搜索** | `hybrid.enabled` | true | 同时使用向量搜索 + BM25 关键词搜索 |
+| | `hybrid.vectorWeight` | 0.85 | 向量搜索权重 85%（语义匹配优先） |
+| | `hybrid.textWeight` | 0.15 | 关键词搜索权重 15%（精确匹配补充） |
+| | `hybrid.candidateMultiplier` | 8 | 候选池倍数，越大召回越全但越慢 |
+| **MMR 去重** | `mmr.enabled` | true | 减少重复结果，不同话题覆盖更广 |
+| | `mmr.lambda` | 0.5 | 0=最多样，1=最相关，0.5 平衡 |
+| **时间衰减** | `temporalDecay.enabled` | true | 旧记忆逐渐降权，新记忆优先展示 |
+| | `temporalDecay.halfLifeDays` | 30 | 每 30 天权重减半，MEMORY.md 等常驻文件不衰减 |
+
+> 以上参数适用于大多数场景，用户一般无需调整。如需微调可在配置完成后通过 `gateway config.patch` 修改。
 
 配置写入后，立即执行：
 
