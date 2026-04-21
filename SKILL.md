@@ -281,6 +281,19 @@ cron add:
 | Memory Wiki | 内容导入 | ✅/❌（可能跳过） |
 | Memory Wiki | 定时维护任务 | ✅/❌（可能跳过） |
 
+## 参考文档
+
+遇到问题时，读取对应参考文件获取 OpenClaw 官方文档摘要：
+
+| 问题场景 | 参考文件 | 在线文档 |
+|---------|---------|---------|
+| Memory Search 配置/搜索问题 | `references/memory-search.md` | https://docs.openclaw.ai/concepts/memory-search |
+| Dreaming 配置/阶段问题 | `references/dreaming.md` | https://docs.openclaw.ai/concepts/dreaming |
+| Memory Wiki 配置/bridge 问题 | `references/memory-wiki.md` | https://docs.openclaw.ai/plugins/memory-wiki |
+| Builtin Engine / 索引问题 | `references/memory-search.md` | https://docs.openclaw.ai/concepts/memory-builtin |
+| 完整 Memory 配置参考 | `references/memory-search.md` | https://docs.openclaw.ai/reference/memory-config |
+| Memory 总览 | `references/memory-search.md` | https://docs.openclaw.ai/concepts/memory |
+
 ## 故障排查
 
 - **索引为空**：`openclaw memory index --force` 强制重建
