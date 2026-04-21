@@ -8,18 +8,22 @@ description: |
 
 一键配置 OpenClaw 记忆系统，包含 Memory Search（向量语义搜索）、Dreaming（夜间记忆整理）、Memory Wiki（知识库）三大模块。
 
-## Embedding 服务信息
+## Embedding 服务信息（默认）
 
 - **Provider**：`openai`（OpenAI 兼容格式）
 - **Base URL**：`https://lapi.transiglobal.com/v1`
 - **默认模型**：`bge-large-zh-v1.5`
-- **说明**：复用 trapi 的 API Key，不需要单独的 embedding provider
+- **API Key 来源**：优先复用本地已配置的 trapi provider；如未配置则要求用户提供
 
 ## 前置条件
 
-1. 用户**必须提供 trapi API Key**（与 trapi provider 使用同一个 Key）
-2. OpenClaw 已安装并运行
-3. 本机配置文件为 `openclaw.json`，使用 `gateway config.patch` 写入
+1. OpenClaw 已安装并运行
+2. 本机配置文件为 `openclaw.json`，使用 `gateway config.patch` 写入
+3. Embedding API Key：
+   - **优先**：检查本地 `models.providers.trapi.apiKey` 是否已配置，已配置则复用
+   - **兜底**：如 trapi 未配置，向用户提供两种选择：
+     - a) 提供 trapi API Key（使用默认 trapi embedding 端点）
+     - b) 提供其他 embedding provider 信息（provider、baseUrl、apiKey、model）
 
 ---
 
@@ -27,7 +31,14 @@ description: |
 
 ### 步骤 1：配置 Embedding
 
-向用户索要 trapi API Key。未提供则终止流程。
+**检测 trapi**：先通过 `gateway config.get` 检查 `models.providers.trapi` 是否已存在：
+
+- **已配置 trapi**：直接从配置中提取 `apiKey`，无需用户额外提供，跳到下一步
+- **未配置 trapi**：向用户说明两种选择：
+  - a) 提供 trapi API Key → 使用默认配置（baseUrl + bge-large-zh-v1.5）
+  - b) 提供自定义 embedding provider 信息（需确认 provider、baseUrl、apiKey、model）
+
+如用户拒绝提供任何 Key，终止流程。
 
 使用 `gateway config.patch` 配置 `agents.defaults.memorySearch`：
 

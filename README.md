@@ -20,7 +20,10 @@ OpenClaw 技能（Skill）：一键配置 OpenClaw 记忆系统。
 | Base URL | `https://lapi.transiglobal.com/v1` |
 | 模型 | `bge-large-zh-v1.5` |
 
-复用 trapi API Key，无需单独配置 embedding provider。
+### API Key
+
+- **优先复用**：如本地已配置 trapi provider，自动提取 API Key，无需额外提供
+- **兜底**：如未配置 trapi，用户需提供 trapi Key 或自定义 embedding provider 信息
 
 ## 使用方式
 
