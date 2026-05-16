@@ -1,12 +1,14 @@
 ---
 name: openclaw-memory-config
 description: |
-  配置 OpenClaw 记忆系统：Memory Search（向量搜索）、Dreaming（记忆整理）、Memory Wiki（知识库）。触发词："配置记忆"、"配置 memory"、"memory search"、"配置搜索"、"配置 dreaming"、"配置梦境"、"配置 wiki"、"memory wiki"、"记忆配置"。使用本机已有 trapi embedding 端点，为用户提供完整的记忆系统初始化流程。
+  配置 OpenClaw 记忆系统：Memory Core（核心插件）、Memory Search（向量搜索）、Dreaming（记忆整理）、Memory Wiki（知识库）。触发词："配置记忆"、"配置 memory"、"memory search"、"配置搜索"、"配置 dreaming"、"配置梦境"、"配置 wiki"、"memory wiki"、"记忆配置"、"配置 memory core"。使用本机已有 trapi embedding 端点，为用户提供完整的记忆系统初始化流程。
 ---
 
 # OpenClaw 记忆系统配置
 
-一键配置 OpenClaw 记忆系统，包含 Memory Search（向量语义搜索）、Dreaming（夜间记忆整理）、Memory Wiki（知识库）三大模块。
+一键配置 OpenClaw 记忆系统，包含 Memory Core（核心插件）、Memory Search（向量语义搜索）、Dreaming（夜间记忆整理）、Memory Wiki（知识库）四大模块。
+
+> **执行顺序**：模块 0 → 模块 1 → 模块 2 → 模块 3（每步依赖前一步）
 
 ## Embedding 服务信息（默认）
 
@@ -24,6 +26,78 @@ description: |
    - **兜底**：如 trapi 未配置，向用户提供两种选择：
      - a) 提供 trapi API Key（使用默认 trapi embedding 端点）
      - b) 提供其他 embedding provider 信息（provider、baseUrl、apiKey、model）
+
+---
+
+## 模块 0：Memory Core（核心记忆插件）
+
+Memory Core（`@openclaw/memory-core`）是 OpenClaw 的**内置核心插件**，提供 `memory_search` 和 `memory_get` 两个记忆工具，是所有记忆功能的基础。
+
+### 概念说明
+
+| 概念 | 说明 |
+|------|------|
+| `memory-core` 插件 | 内置插件，提供 memory 工具（search/get）和 dreaming 能力 |
+| `memory.backend` | 全局记忆引擎选择：`builtin`（默认 SQLite）或 `qmd`（外部 sidecar） |
+| `plugins.slots.memory` | 指定哪个插件占用 memory slot（提供记忆工具），同时只能有一个 |
+| `plugins.allow` | 插件白名单，`memory-core` 必须在其中 |
+
+### 步骤 1：检测现有配置
+
+通过 `gateway config.get` 检查以下路径：
+
+1. `plugins.entries.memory-core.enabled` — 是否已启用
+2. `plugins.slots.memory` — 当前 memory slot 由谁占用
+3. `memory.backend` — 当前记忆引擎
+4. `plugins.allow` — 白名单中是否包含 `memory-core`
+
+**判断逻辑**：
+- **memory-core 已启用且 slot 正常** → 跳过此模块，直接进入模块 1
+- **memory-core 未启用或 slot 被其他插件占用** → 继续配置
+- **slot 被第三方插件占用**（如 `memory-lancedb-pro`）→ **向用户确认**：是否切换回 `memory-core`？第三方插件可能有额外功能（autoCapture、autoRecall 等），切换会失去这些功能
+
+### 步骤 2：配置 Memory Core
+
+使用 `gateway config.patch` 写入配置：
+
+```json
+{
+  "plugins": {
+    "allow": [
+      "memory-core"
+    ],
+    "entries": {
+      "memory-core": {
+        "enabled": true
+      }
+    },
+    "slots": {
+      "memory": "memory-core"
+    }
+  },
+  "memory": {
+    "backend": "builtin"
+  }
+}
+```
+
+> **注意**：`plugins.allow` 是合并写入，不会覆盖已有的其他插件。`memory.backend` 设为 `builtin` 即使用默认 SQLite 引擎，无需额外依赖。
+
+### 步骤 3：验证
+
+1. 执行 `openclaw memory status` 确认状态
+2. 检查输出中是否包含 `memory-core` 相关信息
+3. 尝试调用 `memory_search` 工具搜索一个简单关键词，确认工具可用
+
+**验证报告**：
+
+| 测试项 | 结果 |
+|--------|------|
+| memory-core 插件启用 | ✅/❌ |
+| memory slot 指向 memory-core | ✅/❌ |
+| memory backend 为 builtin | ✅/❌ |
+| `openclaw memory status` 正常 | ✅/❌ |
+| `memory_search` 工具可用 | ✅/❌ |
 
 ---
 
@@ -131,6 +205,10 @@ openclaw memory index --force
 ---
 
 ## 模块 2：Dreaming（夜间记忆整理）
+
+### 前置条件
+
+- **模块 0（Memory Core）必须已完成**：`memory-core` 插件必须已启用
 
 ### 配置
 
@@ -274,6 +352,7 @@ cron add:
 
 | 模块 | 配置项 | 状态 |
 |------|--------|------|
+| Memory Core | 插件启用 + slot + backend | ✅/❌ |
 | Memory Search | Embedding + 索引 | ✅/❌ |
 | Memory Search | 语义搜索测试 | ✅/❌ |
 | Dreaming | 启用 + cron | ✅/❌ |
@@ -287,12 +366,14 @@ cron add:
 
 | 问题场景 | 参考文件 | 在线文档 |
 |---------|---------|---------|
+| Memory Core 插件配置 | `references/memory-search.md` | https://docs.openclaw.ai/plugins/reference/memory-core |
 | Memory Search 配置/搜索问题 | `references/memory-search.md` | https://docs.openclaw.ai/concepts/memory-search |
 | Dreaming 配置/阶段问题 | `references/dreaming.md` | https://docs.openclaw.ai/concepts/dreaming |
 | Memory Wiki 配置/bridge 问题 | `references/memory-wiki.md` | https://docs.openclaw.ai/plugins/memory-wiki |
 | Builtin Engine / 索引问题 | `references/memory-search.md` | https://docs.openclaw.ai/concepts/memory-builtin |
 | 完整 Memory 配置参考 | `references/memory-search.md` | https://docs.openclaw.ai/reference/memory-config |
 | Memory 总览 | `references/memory-search.md` | https://docs.openclaw.ai/concepts/memory |
+| 插件 Slot 机制 | — | https://docs.openclaw.ai/plugins/reference |
 
 ## 故障排查
 
