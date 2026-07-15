@@ -1,113 +1,49 @@
-# Memory Search 参考文档
+# Memory Search 参考
 
-> 来源：OpenClaw 官方文档
-> - https://docs.openclaw.ai/concepts/memory-search
-> - https://docs.openclaw.ai/reference/memory-config
-> - https://docs.openclaw.ai/concepts/memory-builtin
-> - https://docs.openclaw.ai/concepts/memory
+官方来源：
 
-## Memory Search 工作原理
+- https://docs.openclaw.ai/concepts/memory-search
+- https://docs.openclaw.ai/reference/memory-config
+- https://docs.openclaw.ai/concepts/memory
 
-两路并行检索，加权合并：
+## 当前关键点
 
-1. **Vector Search（向量搜索）**：通过 embedding 找语义相似的笔记
-2. **BM25 Keyword Search（关键词搜索）**：找精确匹配（ID、错误字符串、配置键）
+- 默认 builtin 引擎使用 per-agent SQLite、FTS/BM25 与可选向量检索。
+- 通用 OpenAI-compatible embeddings 端点使用 `provider: "openai-compatible"`，避免继承 OpenAI chat 凭据。
+- provider 也可指向兼容的 `models.providers.<id>`。
+- 显式远程 provider 运行时不可用会 fail closed；`provider: "none"` 才是明确的 FTS-only。
+- 改 provider、model、输入类型、sources、scope、chunking 或 tokenizer 后需要显式重建索引。
+- API Key 使用 SecretRef；Codex OAuth 不能用于 embeddings。
 
-如只有一路可用，另一路单独运行。
+## 官方默认值
 
-## Builtin Memory Engine（默认）
+- `chunking.tokens`: 400
+- `chunking.overlap`: 80
+- `query.maxResults`: 6
+- `query.minScore`: 0.35
+- `hybrid.enabled`: true
+- `hybrid.vectorWeight`: 0.7
+- `hybrid.textWeight`: 0.3
+- `hybrid.candidateMultiplier`: 4
+- `mmr.enabled`: false
+- `mmr.lambda`: 0.7
+- `temporalDecay.enabled`: false
+- `temporalDecay.halfLifeDays`: 30
 
-- 索引存储在 SQLite（per-agent）：`~/.openclaw/memory/<agentId>.sqlite`
-- FTS5 全文索引 + 可选 sqlite-vec 向量扩展
-- CJK 分词支持（中文/日文/韩文）
-- 文件变更自动触发 reindex（1.5s debounce）
-- 无额外依赖
+先用默认值。重复命中明显时启用 MMR；旧的 dated daily notes 经常压过新内容时启用 temporal decay。非日期文件和 `MEMORY.md` 不衰减。
 
-## Embedding Provider 配置
+## 可选能力
 
-```json
-{
-  "agents": {
-    "defaults": {
-      "memorySearch": {
-        "provider": "openai",
-        "model": "bge-large-zh-v1.5",
-        "remote": {
-          "baseUrl": "https://lapi.transiglobal.com/v1",
-          "apiKey": "YOUR_KEY"
-        }
-      }
-    }
-  }
-}
-```
+- 非对称 embeddings：设置 `queryInputType` 与 `documentInputType`。
+- session transcripts：同时启用 `experimental.sessionMemory` 并在 `sources` 加入 `sessions`；注意存储、隐私和索引成本。
+- QMD session search 还需 `memory.qmd.sessions.enabled: true`。
+- multimodal：仅对 `extraPaths` 下的图像/音频生效，需 Gemini embedding-2；会上传二进制内容，应明确确认。
+- local embeddings：需要官方 llama.cpp provider 插件；安装和原生构建必须单独安全审计与确认。
 
-### 支持的 Provider
+## 排障
 
-| Provider | ID | 自动检测 | 说明 |
-|----------|----|---------|------|
-| OpenAI | `openai` | ✅ | 默认 text-embedding-3-small |
-| Gemini | `gemini` | ✅ | 支持多模态（图片+音频） |
-| Voyage | `voyage` | ✅ | |
-| Mistral | `mistral` | ✅ | |
-| Ollama | `ollama` | ❌ 需显式设置 | 本地 |
-| Local | `local` | ✅ 优先级最高 | GGUF 模型，~0.6GB |
-
-自定义 OpenAI 兼容端点通过 `remote.baseUrl` + `remote.apiKey` 配置。
-
-## 搜索参数详解
-
-### 分块（Chunking）
-
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `chunking.tokens` | 400 | 每块 token 数 |
-| `chunking.overlap` | 80 | 块间重叠 |
-
-### 基础查询
-
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `query.maxResults` | — | 最大返回结果数 |
-| `query.minScore` | — | 最低相关度阈值 |
-
-### 混合搜索（Hybrid）
-
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `hybrid.enabled` | true | 启用混合搜索 |
-| `hybrid.vectorWeight` | 0.7 | 向量权重 |
-| `hybrid.textWeight` | 0.3 | 关键词权重 |
-| `hybrid.candidateMultiplier` | 4 | 候选池倍数 |
-
-### MMR 去重
-
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `mmr.enabled` | false | 启用 MMR 重排序 |
-| `mmr.lambda` | 0.7 | 0=最多样，1=最相关 |
-
-### 时间衰减
-
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `temporalDecay.enabled` | false | 启用时间衰减 |
-| `temporalDecay.halfLifeDays` | 30 | 半衰期天数 |
-
-> MEMORY.md 等常驻文件不参与衰减。
-
-## CLI 命令
-
-```bash
-openclaw memory status          # 查看索引状态
-openclaw memory status --deep   # 深度检查（含 embedding）
-openclaw memory index --force   # 强制重建索引
-openclaw memory search "query"  # 命令行搜索
-```
-
-## 故障排查
-
-- **无结果**：`openclaw memory status` 检查索引，空则 `openclaw memory index --force`
-- **只有关键词匹配**：embedding provider 未配置，检查 `openclaw memory status --deep`
-- **CJK 搜索失败**：`openclaw memory index --force` 重建 FTS
-- **sqlite-vec 加载失败**：自动降级为进程内余弦相似度计算
+- 无结果：`openclaw memory status`，必要时重建索引。
+- 只有关键词：用 `openclaw memory status --deep` 检查 embedding。
+- 显式 provider 不可用：修复认证/网络；不会静默退回 FTS。
+- CJK 检索异常：重建 FTS 索引。
+- `openclaw memory` 未注册：检查 active memory plugin，而不是直接重建。

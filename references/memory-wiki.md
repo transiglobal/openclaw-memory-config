@@ -1,116 +1,39 @@
-# Memory Wiki 参考文档
+# Memory Wiki 参考
 
-> 来源：OpenClaw 官方文档
-> - https://docs.openclaw.ai/plugins/memory-wiki
+官方来源：https://docs.openclaw.ai/plugins/memory-wiki
 
-## 概述
+Memory Wiki 是结构化知识层，不替代 active memory plugin。
 
-Memory Wiki 将持久记忆编译为结构化知识库，不替代 active memory plugin。
+## 当前配置选择
 
-## Vault 模式
+- `vaultMode`: `isolated`（默认）、`bridge`、`unsafe-local`
+- `vault.scope`: `global`（默认）或 `agent`
+- `vault.path`: global 默认 `~/.openclaw/wiki/main`；agent scope 默认父目录 `~/.openclaw/wiki`
+- `vault.renderMode`: `native`（默认）或 `obsidian`
+- `search.backend`: `shared`（默认）或 `local`
+- `search.corpus`: `wiki`（默认）、`memory`、`all`
 
-| 模式 | 说明 |
-|------|------|
-| `isolated` | 独立 vault，不依赖 memory-core |
-| `bridge` | 从 memory-core 读取公开 artifact |
-| `unsafe-local` | 本地文件系统直接访问（实验性） |
+Bridge 模式可导入 active memory plugin 的 public artifacts、Dream reports、daily notes、memory root 和 event logs。Agent-scoped bridge 会按 artifact 所属 agent 过滤。
 
-## Vault 目录结构
+`vault.scope` 改变不会复制或拆分现有 vault。多 agent 的 per-agent vault 是同进程知识边界，不是操作系统安全边界。
 
-```text
-<vault>/
-  AGENTS.md
-  WIKI.md
-  index.md
-  inbox.md
-  entities/      # 实体（人、系统、项目）
-  concepts/      # 概念、模式、策略
-  syntheses/     # 编译摘要
-  sources/       # 导入的原始材料
-  reports/       # 仪表板报告
-  _attachments/
-  _views/
-  .openclaw-wiki/
-```
+## 可选项
 
-## 配置（isolated 模式）
+- Obsidian 官方 CLI：`obsidian.useOfficialCli`
+- URL 导入：`ingest.allowUrlIngest`
+- compiled digest prompt：`context.includeCompiledDigestPrompt`
+- unsafe-local：必须显式允许 private memory-core access 并限定 paths
 
-```json
-{
-  "plugins": {
-    "entries": {
-      "memory-wiki": {
-        "enabled": true,
-        "config": {
-          "vaultMode": "isolated",
-          "vault": {
-            "path": "~/.openclaw/wiki/main",
-            "renderMode": "obsidian"
-          },
-          "bridge": {
-            "enabled": false
-          },
-          "search": {
-            "backend": "shared",
-            "corpus": "all"
-          },
-          "render": {
-            "preserveHumanBlocks": true,
-            "createBacklinks": true,
-            "createDashboards": true
-          },
-          "ingest": {
-            "autoCompile": true,
-            "maxConcurrentJobs": 1
-          },
-          "obsidian": {
-            "enabled": true
-          }
-        }
-      }
-    }
-  }
-}
-```
+这些能力涉及依赖、网络、私有文件或 prompt 体积，不能默认开启。
 
-## 关键配置项
+## CLI
 
-| 配置项 | 说明 |
-|--------|------|
-| `vaultMode` | `isolated` / `bridge` / `unsafe-local` |
-| `vault.renderMode` | `native` 或 `obsidian` |
-| `search.backend` | `shared`（共享记忆搜索）或 `local` |
-| `search.corpus` | `wiki` / `memory` / `all` |
-| `render.createBacklinks` | 生成相关链接 |
-| `render.createDashboards` | 生成仪表板页面 |
-| `ingest.autoCompile` | 自动编译 |
-
-## Agent 工具
-
-| 工具 | 说明 |
-|------|------|
-| `wiki_status` | vault 模式、健康状态 |
-| `wiki_search` | 搜索 wiki 页面 |
-| `wiki_get` | 读取 wiki 页面 |
-| `wiki_apply` | 窄范围修改（synthesis/metadata） |
-| `wiki_lint` | 结构检查、provenance、矛盾、问题 |
-
-## CLI 命令
-
-```bash
-openclaw wiki status      # 状态
-openclaw wiki doctor      # 诊断
-openclaw wiki init        # 初始化
-openclaw wiki ingest <path>  # 导入内容
-openclaw wiki compile     # 编译
-openclaw wiki lint        # 检查
-openclaw wiki search "query"  # 搜索
-```
-
-## Bridge 模式可索引的内容
-
-- exported memory artifacts
-- dream reports
-- daily notes
-- memory root files
-- memory event logs
+- `openclaw wiki status`
+- `openclaw wiki doctor`
+- `openclaw wiki init`
+- `openclaw wiki ingest <path>`
+- `openclaw wiki compile`
+- `openclaw wiki lint`
+- `openclaw wiki search "query"`
+- `openclaw wiki bridge import`
+- `openclaw wiki obsidian status`
